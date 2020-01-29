@@ -1,5 +1,6 @@
 import java.awt.Graphics;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -12,19 +13,47 @@ import javax.swing.JPanel;
  * Spring 2020, 1st half-semester
  * @author Krzysztof Dziedzic
  */
-public class FaceDraw {
+public class FaceDraw implements Runnable {
+    private static List<Face> FaceList;
+    private static Random random;
+    private static FaceFrame faceFrame;
+
     public static void main(String[] args) {
         int frameWidth = 1200;
         int frameHeight = 800;
         int margin = 30;
-        List<Face> FaceList = new ArrayList<>();
-        Random random = new Random();
+        FaceList = Collections.synchronizedList(new ArrayList<>());
+        random = new Random();
         int count = random.nextInt(8) + 3;
         for (; count > 0; count --) {
             FaceList.add(new Face(frameWidth - margin, frameHeight - margin));
         }
 
-        FaceFrame faceFrame = new FaceFrame(frameWidth, frameHeight, FaceList);
+        faceFrame = new FaceFrame(frameWidth, frameHeight, FaceList);
+
+        // Unique feature:
+        // At random intervals between 1 and 3 seconds a random face may change its mood.
+        // If it changes its mood to the same mood it's already in, no changes will be visible on the screen.
+        Thread background = new Thread(new FaceDraw());
+        background.start();
+    }
+
+    @Override
+    public void run() {
+        while(true) {
+            int millis = random.nextInt(3) + 1;
+            millis *= 1000;
+            try {
+                System.out.println("Sleeping " + millis);
+                Thread.sleep(millis);
+            } catch (InterruptedException e) {
+                return;
+            }
+            int index = random.nextInt(FaceList.size());
+            int smiling = random.nextInt(3) - 1;
+            FaceList.get(index).setSmiling(smiling);
+            faceFrame.repaint();
+        }
     }
 }
 
@@ -110,6 +139,7 @@ class Face extends Oval {
         leftEye.paintComponent(g);
         rightEye.paintComponent(g);
         mouth.paintComponent(g);
+        System.out.println(toString());
     }
 
     @Override
@@ -151,7 +181,11 @@ class Arc extends Oval {
         }
     }
 
-    public void setSmiling(int smilingIn) { smiling = smilingIn; }
+    public void setSmiling(int smilingIn) {
+        if (smiling != smilingIn) {
+            smiling = smilingIn;
+        }
+    }
     public int getSmiling() { return smiling; }
 }
 
@@ -210,7 +244,6 @@ class FacePanel extends JPanel {
     public void paintComponent(Graphics g) {
         getFaces().forEach(e -> { 
             e.paintComponent(g);
-            System.out.println(e);
          });
     }
 }
