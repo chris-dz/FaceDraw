@@ -1,4 +1,22 @@
+/*
+    Copyright (C) 2020  Krzysztof Dziedzic
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import java.awt.Graphics;
+import java.awt.GraphicsEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -11,31 +29,27 @@ import javax.swing.JPanel;
 /**
  * This is a FaceDraw application for Object Oriented Programming class
  * Spring 2020, 1st half-semester
+ * 
+ * This software is freely distributable under version 3 of the GNU General Public License
+ * The full text of the License should be distributed with this software
+ * in a file named LICENSE, accompanying this software.
+ * 
  * @author Krzysztof Dziedzic
  */
 public class FaceDraw implements Runnable {
-    private static List<Face> FaceList;
     private static Random random;
     private static FaceFrame faceFrame;
+    private static FacePanel panel;
 
     public static void main(String[] args) {
-        int frameWidth = 1200;
-        int frameHeight = 800;
-        int margin = 30;
-        FaceList = Collections.synchronizedList(new ArrayList<>());
         random = new Random();
-        int count = random.nextInt(8) + 3;
-        for (; count > 0; count --) {
-            FaceList.add(new Face(frameWidth - margin, frameHeight - margin));
-        }
-
-        faceFrame = new FaceFrame(frameWidth, frameHeight, FaceList);
+        faceFrame = new FaceFrame();
 
         // Unique feature:
         // At random intervals between 1 and 3 seconds a random face may change its mood.
         // If it changes its mood to the same mood it's already in, no changes will be visible on the screen.
-        Thread background = new Thread(new FaceDraw());
-        background.start();
+        Thread updateMood = new Thread(new FaceDraw());
+        updateMood.start();
     }
 
     @Override
@@ -49,9 +63,12 @@ public class FaceDraw implements Runnable {
             } catch (InterruptedException e) {
                 return;
             }
-            int index = random.nextInt(FaceList.size());
+            if (panel == null) {
+                panel = (FacePanel) faceFrame.getFacePanel();
+            }
+            int index = random.nextInt(panel.getFaces().size());
             int smiling = random.nextInt(3) - 1;
-            FaceList.get(index).setSmiling(smiling);
+            panel.getFaces().get(index).setSmiling(smiling);
             faceFrame.repaint();
         }
     }
@@ -76,17 +93,14 @@ class Face extends Oval {
 
     public Face(int frameWidthIn, int frameHeightIn, int positionXIn, int positionYIn, int widthIn, int heightIn, int smilingIn) {
         // frame dimensions are not used, as position and dimensions of the Face are supplied
-        setPositionX(positionXIn);
-        setPositionY(positionYIn);
-        setWidth(widthIn);
-        setHeight(heightIn);
+        setBounds(positionXIn, positionYIn, widthIn, heightIn);
         setSmiling(smilingIn);
         setEyesAndMouth(widthIn, heightIn);
     }
 
     private void setRandomDimensions(int frameWidthIn, int frameHeightIn) {
         // Use the least of the frame's dimensions, so that ovals don't have the tendency 
-        // to stretch horizontally or vertically in correlation with on the screen/frame size
+        // to stretch horizontally or vertically in correlation with the screen/frame size
         int minFrameDimension = (Math.min(frameWidthIn, frameHeightIn));
         // Large faces tend to overlap a lot. Limit the max size to a fraction of the frame dimensions:
         minFrameDimension = (int) (minFrameDimension * 0.5);
@@ -94,10 +108,7 @@ class Face extends Oval {
         int minFaceDimension = (int) (minFrameDimension * 0.3);
         int width = getRandomValue(minFaceDimension, minFrameDimension);
         int height = getRandomValue(minFaceDimension, minFrameDimension);
-        setWidth(width);
-        setHeight(height);
-        setPositionX(getRandomValue(0, frameWidthIn - width));
-        setPositionY(getRandomValue(0, frameHeightIn - height));
+        setBounds(getRandomValue(0, frameWidthIn - width), getRandomValue(0, frameHeightIn - height), width, height);
         setSmiling(getRandomValue(0, 3) - 1);
 
         // Add eyes and mouth
@@ -105,18 +116,18 @@ class Face extends Oval {
     }
 
     private void setEyesAndMouth(int width, int height) {
-        int x = getPositionX() + (width / 2 - 10 * (width / 60));
-        int y = getPositionY() + (height / 2 - height / 6);
+        int x = getX() + (width / 2 - 10 * (width / 60));
+        int y = getY() + (height / 2 - height / 6);
         int w = width / 10;
         int h = height / 4;
 
         leftEye = new Oval(x, y, w, h);
 
-        x = getPositionX() + (width / 2 + 4 * (width / 60));
+        x = getX() + (width / 2 + 4 * (width / 60));
         rightEye = new Oval(x, y, w, h);
 
-        x = getPositionX() + width / 4;
-        y = getPositionY() + (int) (height * 0.7);
+        x = getX() + width / 4;
+        y = getY() + (int) (height * 0.7);
         w = (int) (width / 2);
         h = (int) (height * 0.2);
         mouth = new Arc(x, y, w, h, smiling);
@@ -134,8 +145,7 @@ class Face extends Oval {
 
     @Override
     public void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        g.drawOval(getPositionX(), getPositionY(), getWidth(), getHeight());
+        g.drawOval(getX(), getY(), getWidth(), getHeight());
         leftEye.paintComponent(g);
         rightEye.paintComponent(g);
         mouth.paintComponent(g);
@@ -145,7 +155,7 @@ class Face extends Oval {
     @Override
     public String toString() {
         return(String.format("Face: x=%d, y=%d, width=%d, height=%d, smiling=%s",
-            getPositionX(), getPositionY(), getWidth(), getHeight(),
+            getX(), getY(), getWidth(), getHeight(),
             (smiling < 0 ? "Frowning" : (smiling > 0 ? "Smiling" : "Neutral"))));
     }
 
@@ -158,26 +168,22 @@ class Face extends Oval {
     public int getSmiling() { return smiling; }
 }
 
-class Arc extends Oval {
+class Arc extends JComponent {
     private int smiling = 0;
 
     public Arc(int positionXIn, int positionYIn, int widthIn, int heightIn, int smilingIn) {
-        setPositionX(positionXIn);
-        setPositionY(positionYIn);
-        setWidth(widthIn);
-        setHeight(heightIn);
+        setBounds(positionXIn, positionYIn, widthIn, heightIn);
         setSmiling(smilingIn);
     }
 
     @Override
     public void paintComponent(Graphics g) {
-        // super.paintComponent(g);
         if (smiling < 0) {
-            g.drawArc(getPositionX(), getPositionY() - getHeight(), getWidth(), getHeight(), 190, 160);
+            g.drawArc(getX(), getY() - getHeight(), getWidth(), getHeight(), 190, 160);
         } else if (smiling == 0) {
-            g.drawLine(getPositionX(), getPositionY(), getPositionX() + getWidth(), getPositionY());
+            g.drawLine(getX(), getY(), getX() + getWidth(), getY());
         } else {
-            g.drawArc(getPositionX(), getPositionY(), getWidth(), getHeight(), 10, 160);
+            g.drawArc(getX(), getY(), getWidth(), getHeight(), 10, 160);
         }
     }
 
@@ -190,36 +196,24 @@ class Arc extends Oval {
 }
 
 class Oval extends JComponent {
-    private int positionX;
-    private int positionY;
-    private int height;
-    private int width;
+
+    public void setX(int x) { setLocation(x, getY()); }
+    public void setY(int y) { setLocation(getX(), y); }
+    public void setWidth(int width) { setSize(width, getHeight()); }
+    public void setHeight(int height) { setSize(getWidth(), height); }
 
     public Oval() {
 
     }
 
     public Oval(int positionXIn, int positionYIn, int widthIn, int heightIn) {
-        setPositionX(positionXIn);
-        setPositionY(positionYIn);
-        setWidth(widthIn);
-        setHeight(heightIn);
+        setBounds(positionXIn, positionYIn, widthIn, heightIn);
     }
 
     @Override
     public void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        g.drawOval(getPositionX(), getPositionY(), getWidth(), getHeight());
+        g.drawOval(getX(), getY(), getWidth(), getHeight());
     }
-
-    public void setPositionX(int positionXIn) { positionX = positionXIn; }
-    public int getPositionX() { return positionX; }
-    public void setPositionY(int positionYIn) { positionY = positionYIn; }
-    public int getPositionY() { return positionY; }
-    public void setHeight(int heightIn) { height = heightIn; }
-    public int getHeight() { return height; }
-    public void setWidth(int widthIn) { width = widthIn; }
-    public int getWidth() { return width; }
 }
 
 class FacePanel extends JPanel {
@@ -227,21 +221,40 @@ class FacePanel extends JPanel {
     public void setFaces(List<Face> faces) { this.faces = faces; }
     public List<Face> getFaces() {
         if (faces == null) {
-            faces = new ArrayList<>();
+            faces = Collections.synchronizedList(new ArrayList<>());
         }
         return faces;
     }
 
     public FacePanel() {
-        this(new ArrayList<Face>());
+        this(Collections.synchronizedList(new ArrayList<>()));
+        initializePanel();
+    }
+
+    public FacePanel(JFrame parentFrame) {
+        this(Collections.synchronizedList(new ArrayList<>()));
+        setBounds(parentFrame.getBounds());
+        initializePanel();
     }
 
     public FacePanel(List<Face> faces) {
+        setBounds(GraphicsEnvironment.getLocalGraphicsEnvironment()
+            .getDefaultScreenDevice().getDefaultConfiguration().getBounds());
         this.faces = faces;
+    }
+
+    private void initializePanel() {
+        int margin = 50;
+        Random random = new Random();
+        int count = random.nextInt(8) + 3;
+        for (; count > 0; count --) {
+            faces.add(new Face(getWidth(), getHeight() - margin));
+        }
     }
 
     @Override
     public void paintComponent(Graphics g) {
+        super.paintComponent(g);
         getFaces().forEach(e -> { 
             e.paintComponent(g);
          });
@@ -250,6 +263,20 @@ class FacePanel extends JPanel {
 
 class FaceFrame extends JFrame {
     private JPanel facePanel;
+
+    public JPanel getFacePanel() { return facePanel; }
+
+    public FaceFrame() {
+        super("FaceDraw");
+        setBounds(GraphicsEnvironment.getLocalGraphicsEnvironment()
+            .getDefaultScreenDevice().getDefaultConfiguration().getBounds());
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        facePanel = new FacePanel(this);
+        setContentPane(facePanel);
+        setVisible(true);
+    }
+
     public FaceFrame(int widthIn, int heightIn, List<Face> FaceList) {
         super("FaceDraw");
         setSize(widthIn, heightIn);
