@@ -17,6 +17,7 @@
 
 import java.awt.Graphics;
 import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -217,6 +218,7 @@ class Oval extends JComponent {
 }
 
 class FacePanel extends JPanel {
+    private int margin = 30;
     private List<Face> faces;
     public void setFaces(List<Face> faces) { this.faces = faces; }
     public List<Face> getFaces() {
@@ -233,7 +235,9 @@ class FacePanel extends JPanel {
 
     public FacePanel(JFrame parentFrame) {
         this(Collections.synchronizedList(new ArrayList<>()));
-        setBounds(parentFrame.getBounds());
+        Rectangle bounds = parentFrame.getBounds();
+        bounds.grow(margin * -1, margin * -1);
+        setBounds(bounds);
         initializePanel();
     }
 
@@ -244,11 +248,10 @@ class FacePanel extends JPanel {
     }
 
     private void initializePanel() {
-        int margin = 50;
         Random random = new Random();
         int count = random.nextInt(8) + 3;
         for (; count > 0; count --) {
-            faces.add(new Face(getWidth(), getHeight() - margin));
+            faces.add(new Face(getWidth(), getHeight()));
         }
     }
 
