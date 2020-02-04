@@ -258,9 +258,7 @@ class FacePanel extends JPanel {
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
-        getFaces().forEach(e -> { 
-            e.paintComponent(g);
-         });
+        getFaces().forEach(e -> e.paintComponent(g));
     }
 }
 
