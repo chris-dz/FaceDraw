@@ -146,7 +146,7 @@ class Face extends Oval {
 
     @Override
     public void paintComponent(Graphics g) {
-        g.drawOval(getX(), getY(), getWidth(), getHeight());
+        super.paintComponent(g);
         leftEye.paintComponent(g);
         rightEye.paintComponent(g);
         mouth.paintComponent(g);
